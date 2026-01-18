@@ -1,0 +1,7 @@
+thresholds:
+  head_pose_deg: 30
+  gaze_angle_deg: 25
+camera_id: 0
+model_file: L2CSNet_gaze360.pkl
+log_dir: logs
+

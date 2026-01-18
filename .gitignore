@@ -1,0 +1,16 @@
+# Ignore python cache files
+__pycache__/
+*.pyc
+
+# Ignore the Evidence Logs (IMPORTANT: Don't upload photos of yourself!)
+logs/
+
+# Ignore virtual environments (if you used one)
+venv/
+env/
+.env
+
+# Ignore OS system files
+.DS_Store
+Thumbs.db
+
