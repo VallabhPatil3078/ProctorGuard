@@ -10,6 +10,7 @@ from src.gaze_estimator import GazeEstimator
 from src.fusion_engine import FusionEngine
 from src.logger import EvidenceLogger
 from src.object_detector import ObjectDetector
+from src.audio_monitor import AudioMonitor
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="ProctorGuard Dashboard", layout="wide")
@@ -29,6 +30,8 @@ if 'fusion_engine' not in st.session_state:
     st.session_state.fusion_engine = FusionEngine()
     st.session_state.logger = EvidenceLogger()
     st.session_state.object_detector = ObjectDetector()
+    st.session_state.audio_monitor = AudioMonitor(threshold=7)
+    # st.session_state.frame_count = 0
 
 # Update Engine dynamically
 st.session_state.fusion_engine.HEAD_YAW_THRESH = head_yaw_limit
@@ -74,8 +77,11 @@ if st.button("Start Exam Session"):
     is_calibrated = False
     
     stop_button = st.button("Stop Exam")
+    # Start Microphone
+    st.session_state.audio_monitor.start()
 
     while cap.isOpened() and not stop_button:
+        # st.session_state.frame_count += 1
         success, frame = cap.read()
         if not success: break
         
@@ -118,20 +124,28 @@ if st.button("Start Exam Session"):
                 # 3. Active Monitoring Phase
                 
                 # --- LAYER 1: OBJECT DETECTION (YOLO) ---
-                # Run this FIRST. If a phone is visible, it's an instant alert.
                 is_threat, threat_label, boxes = st.session_state.object_detector.detect(frame)
                 
+                # --- LAYER 2: AUDIO FORENSICS (NEW) ---
+                is_talking, vol_level = st.session_state.audio_monitor.get_status()
+                
+                # DECISION TREE
                 if is_threat:
+                    # Priority 1: Physical Object (Phone/Book)
                     is_cheating = True
                     reason = threat_label
-                    # Draw boxes around the phone/object
                     for (x1, y1, x2, y2, lbl) in boxes:
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 3)
                         cv2.putText(frame, lbl, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
                 
+                elif is_talking:
+                    # Priority 2: Audio (Talking/Whispering)
+                    is_cheating = True
+                    reason = f"High Volume Detected (Vol: {vol_level})"
+                
                 else:
-                    # --- LAYER 2: BEHAVIORAL ANALYSIS (FUSION) ---
-                    # Only check gaze if no phone is detected
+                    # Priority 3: Behavioral (Gaze/Head)
+                    # Only check gaze if no phone and no talking
                     draw_vector(frame, h_pitch, h_yaw, nose_x, nose_y)
                     is_cheating, reason = st.session_state.fusion_engine.analyze(
                         h_pitch, h_yaw, g_pitch_deg, g_yaw_deg
@@ -143,14 +157,14 @@ if st.button("Start Exam Session"):
                     status_text = f"ALERT: {reason}"
                     cv2.rectangle(frame, (0, 0), (w, h), status_color, 10)
                     
-                    # Log Evidence (Works for both Phones and Gaze)
                     st.session_state.logger.log(frame, reason)
                     alert_placeholder.error(f"⚠️ Cheating Detected: {reason}")
                 else:
                     alert_placeholder.success("User Status: Safe")
 
-                # Update Sidebar Metrics
-                metric_status.metric("Head Yaw (Turn)", f"{int(h_yaw)}°", delta_color="off")
+                # Update Sidebar Metrics (Add Volume Meter)
+                metric_status.metric("Head Yaw", f"{int(h_yaw)}°")
+                st.sidebar.metric("🎤 Audio Level", vol_level)
         
         # Display Video in Streamlit
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -160,3 +174,6 @@ if st.button("Start Exam Session"):
         time.sleep(0.01)
 
     cap.release()
+
+    # Stop Microphone
+    st.session_state.audio_monitor.stop()

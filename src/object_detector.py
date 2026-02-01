@@ -3,7 +3,7 @@ import cv2
 import math
 
 class ObjectDetector:
-    def __init__(self, model_path='yolov8n.pt', conf_threshold=0.5):
+    def __init__(self, model_path='yolov8n.pt', conf_threshold=0.3):
         # Load the "Nano" model (Smallest & Fastest)
         # It will auto-download 'yolov8n.pt' on first run
         self.model = YOLO(model_path)
