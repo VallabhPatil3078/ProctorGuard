@@ -9,6 +9,7 @@ from src.head_pose import HeadPoseEstimator
 from src.gaze_estimator import GazeEstimator
 from src.fusion_engine import FusionEngine
 from src.logger import EvidenceLogger
+from src.object_detector import ObjectDetector
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="ProctorGuard Dashboard", layout="wide")
@@ -27,6 +28,7 @@ time_limit = st.sidebar.slider("Suspicion Timer (Sec)", 0.5, 5.0, 1.5)
 if 'fusion_engine' not in st.session_state:
     st.session_state.fusion_engine = FusionEngine()
     st.session_state.logger = EvidenceLogger()
+    st.session_state.object_detector = ObjectDetector()
 
 # Update Engine dynamically
 st.session_state.fusion_engine.HEAD_YAW_THRESH = head_yaw_limit
@@ -114,16 +116,34 @@ if st.button("Start Exam Session"):
             
             else:
                 # 3. Active Monitoring Phase
-                draw_vector(frame, h_pitch, h_yaw, nose_x, nose_y)
                 
-                is_cheating, reason = st.session_state.fusion_engine.analyze(
-                    h_pitch, h_yaw, g_pitch_deg, g_yaw_deg
-                )
+                # --- LAYER 1: OBJECT DETECTION (YOLO) ---
+                # Run this FIRST. If a phone is visible, it's an instant alert.
+                is_threat, threat_label, boxes = st.session_state.object_detector.detect(frame)
+                
+                if is_threat:
+                    is_cheating = True
+                    reason = threat_label
+                    # Draw boxes around the phone/object
+                    for (x1, y1, x2, y2, lbl) in boxes:
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 3)
+                        cv2.putText(frame, lbl, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                
+                else:
+                    # --- LAYER 2: BEHAVIORAL ANALYSIS (FUSION) ---
+                    # Only check gaze if no phone is detected
+                    draw_vector(frame, h_pitch, h_yaw, nose_x, nose_y)
+                    is_cheating, reason = st.session_state.fusion_engine.analyze(
+                        h_pitch, h_yaw, g_pitch_deg, g_yaw_deg
+                    )
 
+                # --- ALERT SYSTEM ---
                 if is_cheating:
                     status_color = (0, 0, 255) # Red
                     status_text = f"ALERT: {reason}"
                     cv2.rectangle(frame, (0, 0), (w, h), status_color, 10)
+                    
+                    # Log Evidence (Works for both Phones and Gaze)
                     st.session_state.logger.log(frame, reason)
                     alert_placeholder.error(f"⚠️ Cheating Detected: {reason}")
                 else:
