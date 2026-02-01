@@ -1,14 +1,19 @@
-# ProctorGuard: Fusion-Based Online Proctoring System
+# ProctorGuard: Multi-Modal AI Proctoring System
 
 ## 📌 Abstract
-ProctorGuard is a non-intrusive, automated proctoring system designed for remote examinations. Unlike traditional systems that rely solely on head pose, ProctorGuard utilizes a **Multi-Modal Fusion Engine** that combines **Geometric Head Pose Estimation (PnP)** and **Deep Learning Gaze Estimation (L2CS-Net)**. This allows it to distinguish between natural movements and "Head-Forward, Eyes-Away" cheating behaviors.
+ProctorGuard is a robust, non-intrusive automated proctoring system designed for remote examinations. It goes beyond traditional eye-tracking by utilizing a **Multi-Modal Fusion Engine** that combines **Computer Vision**, **Deep Learning**, and **Audio Forensics**. 
+
+The system integrates **Geometric Head Pose (PnP)**, **Gaze Estimation (L2CS-Net)**, **Object Detection (YOLOv8)**, and **Real-Time Audio Analysis** to distinguish between natural student behaviors and genuine cheating attempts like using a phone, talking to someone, or looking away.
 
 ## 🚀 Key Features
-- **Deep Learning Gaze Tracking:** Uses ResNet-50 (L2CS-Net) for precise pupil tracking.
+- **Multi-Modal Cheat Detection:**
+  - **Vision:** Tracks Head Pose (Pitch/Yaw) and Eye Gaze (L2CS-Net).
+  - **Object:** Uses **YOLOv8** to detect unauthorized objects (e.g., Mobile Phones) with motion-blur handling.
+  - **Audio:** Monitors microphone input for high-amplitude speech or whispering.
 - **Dynamic Calibration:** A 5-second startup phase learns the user's natural seating position to prevent false positives.
-- **Smart Fusion Logic:** Prioritizes flagrant actions (Head Turn) over subtle ones (Eye Glance) with temporal filtering.
-- **Evidence Logger:** Automatically captures and timestamps screenshots of suspicious activity.
-- **Examiner Dashboard:** Real-time Streamlit web interface for monitoring.
+- **Smart Priority Logic:** The Fusion Engine prioritizes "Hard Evidence" (Phone/Audio) over "Soft Evidence" (Gaze) to reduce false alarms.
+- **Evidence Logger:** Automatically captures timestamped screenshots with the specific violation reason burned into the image.
+- **Examiner Dashboard:** Professional **Streamlit** web interface for real-time monitoring and sensitivity adjustment.
 
 ## 🛠️ Installation
 1. Clone the repository.
