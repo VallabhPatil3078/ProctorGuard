@@ -1,46 +1,45 @@
-from ultralytics import YOLO
 import cv2
+from ultralytics import YOLO
 import math
 
 class ObjectDetector:
-    def __init__(self, model_path='yolov8n.pt', conf_threshold=0.3):
-        # Load the "Nano" model (Smallest & Fastest)
-        # It will auto-download 'yolov8n.pt' on first run
+    def __init__(self, model_path='yolov8n.pt'):
+        # Load the YOLO model (Nano version for speed)
         self.model = YOLO(model_path)
-        self.conf_threshold = conf_threshold
         
-        # COCO Dataset Classes (YOLO default)
-        # ID 67: Cell Phone, ID 73: Book, ID 77: Teddy Bear (Just kidding), etc.
-        # We define what constitutes a "Threat"
-        self.forbidden_classes = [67] # 67 is 'cell phone' in COCO dataset
+        # Classes we care about (COCO dataset indices)
+        # 67: Cell phone, 73: Book, 77: Teddy bear (often mistaken for person), etc.
+        # You can check standard COCO classes for others.
+        self.target_classes = [67, 73] 
 
-    def detect(self, frame):
-        # Run inference
-        results = self.model(frame, stream=True, verbose=False)
+    def detect(self, frame, conf_threshold=0.30):
+        """
+        Detects objects in the frame.
+        conf_threshold: 0.30 means we only need 30% certainty. 
+                        Lower this if it still misses the phone.
+        """
+        results = self.model(frame, stream=True, verbose=False, conf=conf_threshold)
         
-        detections = []
         is_threat = False
         threat_label = ""
+        boxes = []
 
         for r in results:
-            boxes = r.boxes
-            for box in boxes:
-                # 1. Confidence Check
-                conf = math.ceil((box.conf[0] * 100)) / 100
-                if conf < self.conf_threshold:
-                    continue
+            for box in r.boxes:
+                # Get Class ID and Confidence
+                cls_id = int(box.cls[0])
+                conf = float(box.conf[0])
                 
-                # 2. Class Check
-                cls = int(box.cls[0])
-                
-                # Only care if it's a forbidden object (e.g., Cell Phone)
-                if cls in self.forbidden_classes:
+                if cls_id in self.target_classes:
                     is_threat = True
-                    threat_label = "Mobile Phone Detected"
                     
-                    # Get Coordinates for drawing
-                    x1, y1, x2, y2 = box.xyxy[0]
-                    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-                    detections.append((x1, y1, x2, y2, threat_label))
+                    # Get Box Coordinates
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    
+                    # Label map
+                    label_name = self.model.names[cls_id]
+                    threat_label = f"{label_name} ({int(conf*100)}%)"
+                    
+                    boxes.append((x1, y1, x2, y2, threat_label))
 
-        return is_threat, threat_label, detections
+        return is_threat, threat_label, boxes
